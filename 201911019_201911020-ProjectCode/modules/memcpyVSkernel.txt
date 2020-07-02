@@ -1,0 +1,131 @@
+/*This file shows that memory transfer between kernel and host dominates kernel execution time for smaller problem size
+=========================================*/
+
+%%cu
+#include<cstdlib>
+#include<iostream>
+using namespace std;
+#include<cuda.h>
+#include<stdio.h>
+
+__global__ void histogramKernelShared(int *data,int *bins,long long int N, int N_bins, float *binsnew)
+{
+	extern __shared__ int s_bins[];
+	int tid = blockIdx.x*blockDim.x+threadIdx.x;
+	if(threadIdx.x < N_bins)s_bins[threadIdx.x]=0;
+	__syncthreads();
+	if(tid<N)
+	{
+		atomicAdd(&s_bins[data[tid]],1);
+	__syncthreads();
+		if(threadIdx.x < N_bins)
+	{
+			atomicAdd(&bins[threadIdx.x],s_bins[threadIdx.x]);
+		__syncthreads();
+		__shared__ float s_binsnew[256];
+        s_binsnew[threadIdx.x]=0.00;
+       for(int i=0;i<=threadIdx.x;i++) s_binsnew[threadIdx.x]+=bins[i];
+      __syncthreads();
+       s_binsnew[threadIdx.x]=round((s_binsnew[threadIdx.x]/N)*N_bins-1);
+			__syncthreads();
+       if (s_binsnew[threadIdx.x]>N_bins-1)s_binsnew[threadIdx.x]=N_bins-1;
+      __syncthreads();
+		binsnew[threadIdx.x] = s_binsnew[threadIdx.x];
+	}
+	}
+}
+
+__global__ void mapHistogram(int *data,long long int N,float *binsnew)
+{
+	int tid = blockIdx.x*blockDim.x+threadIdx.x;
+	if(tid<N)data[tid]=binsnew[data[tid]];
+}
+
+
+void init_array(int *a, int N)
+{
+	for(int i=0;i<N;i++)a[i]=0;
+}
+
+void init_arrayf(float *a, int N)
+{
+	for(int i=0;i<N;i++)a[i]=0;
+}
+
+void init_long_array(int *a,long long int N,int N_bins)
+{
+	for(int i=0;i<N;i++)a[i]=rand()%N_bins;
+}
+
+
+int main()
+{
+	int T=1024,B=1;
+	int *Data,N_bins=256,*bins,*Data2;
+  bins = (int *)malloc(256*sizeof(int));
+FILE *totalParTime = fopen("totalPar.txt","w");
+	long long int N = 0;
+
+	for(N=256;N<134217729;N*=2)//134217729
+	{
+    Data = (int *)malloc(N*sizeof(int));
+    Data2 = (int *)malloc(N*sizeof(int));
+    init_long_array(Data,N,N_bins);
+    init_long_array(Data2,N,N_bins);
+		init_array(bins,N_bins);
+    B = (N+T-1)/T;
+    cudaEvent_t ss,se;
+	  float st,st2,st3;
+
+		int *dev_Data2,*dev_bins2;
+		float *dev_bins22,*bins2;
+		bins2 = (float *)malloc(N_bins*sizeof(float));
+
+		init_arrayf(bins2,N_bins);
+		cudaMalloc((void**)&dev_Data2,N*sizeof(int));
+		cudaMalloc((void**)&dev_bins2,N_bins*sizeof(int));
+		cudaMalloc((void**)&dev_bins22,N_bins*sizeof(float));
+
+cudaEventCreate(&ss); 
+					cudaEventCreate(&se);
+					cudaEventRecord(ss);
+					cudaDeviceSynchronize();
+		cudaMemcpy(dev_Data2, Data , N*sizeof(int),cudaMemcpyHostToDevice);
+		cudaMemcpy(dev_bins2, bins , N_bins*sizeof(int),cudaMemcpyHostToDevice);
+		cudaMemcpy(dev_bins22, bins2 , N_bins*sizeof(float),cudaMemcpyHostToDevice);
+cudaEventRecord(se);
+cudaEventSynchronize(se);
+cudaEventElapsedTime(&st, ss, se);
+		
+
+    cudaEventCreate(&ss); 
+					cudaEventCreate(&se);
+					cudaEventRecord(ss);
+					cudaDeviceSynchronize();
+						histogramKernelShared<<<B,T,N_bins*sizeof(int)>>>(dev_Data2,dev_bins2,N,N_bins,dev_bins22);
+						mapHistogram<<<B,T>>>(dev_Data2,N,dev_bins22);
+cudaEventRecord(se);
+cudaEventSynchronize(se);
+cudaEventElapsedTime(&st3, ss, se);
+		
+cudaEventCreate(&ss); 
+					cudaEventCreate(&se);
+					cudaEventRecord(ss);
+					cudaDeviceSynchronize();
+		cudaMemcpy(bins,dev_bins2,N_bins*sizeof(int),cudaMemcpyDeviceToHost);
+		cudaMemcpy(bins2,dev_bins22,N_bins*sizeof(float),cudaMemcpyDeviceToHost);
+		cudaMemcpy(Data,dev_Data2,N*sizeof(int),cudaMemcpyDeviceToHost);
+    
+cudaEventRecord(se);
+cudaEventSynchronize(se);
+cudaEventElapsedTime(&st2, ss, se);
+
+  cout<<N<<"  "<<st<<" "<<st2<<" "<<st3<<" "<<st+st2+st3<<endl;
+fprintf(totalParTime,"%d  %f  %f  %f  %f\n",N,st,st2,st3,st+st2+st3);
+		cudaFree(dev_Data2);cudaFree(dev_bins2);cudaFree(dev_bins22);
+		free(bins2);
+	}
+ fclose(totalParTime);
+	free(Data);free(bins);
+	return 0;
+}

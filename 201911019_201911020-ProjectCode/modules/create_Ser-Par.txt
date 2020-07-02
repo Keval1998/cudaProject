@@ -1,0 +1,134 @@
+/*This file contains creation of histogram using serial and parallel code and shows timing comparisions
+=======================================================================================================*/ 
+
+
+%%cu
+#include<cstdlib>
+#include<iostream>
+#include<cuda.h>
+#include<stdio.h>
+using namespace std;
+
+__global__ void histogramKernelShared(int *data,int *bins,long long int N, int N_bins, float *binsnew)
+{
+	extern __shared__ int s_bins[];
+	int tid = blockIdx.x*blockDim.x+threadIdx.x;
+	if(threadIdx.x < N_bins)s_bins[threadIdx.x]=0;
+	__syncthreads();
+	if(tid<N)
+	{
+		atomicAdd(&s_bins[data[tid]],1);
+	__syncthreads();
+		if(threadIdx.x < N_bins)
+	  {
+			atomicAdd(&bins[threadIdx.x],s_bins[threadIdx.x]);
+    }
+	}
+}
+
+void histCreate(int *Data, long long int N, int *bins)
+{
+    for(int i=0;i<N;i++)
+      bins[Data[i]]+=1;
+}
+
+void print_arr(int *arr, int N)
+{
+	for (int i=0;i<N;i++)
+	{
+		//if(arr[i]!=0)
+			cout<<i<<"->"<<arr[i]<<endl;
+	}
+	cout<<endl;
+}
+
+void init_array(int *a, int N)
+{
+	for(int i=0;i<N;i++)a[i]=0;
+}
+
+void init_arrayf(float *a, int N)
+{
+	for(int i=0;i<N;i++)a[i]=0;
+}
+
+void init_long_array(int *a,long long int N,int N_bins)
+{
+	for(int i=0;i<N;i++)a[i]=rand()%N_bins;
+}
+
+int main()
+{
+	int T=1024,B=1;
+	int *Data,N_bins=256,*bins,*Data2;
+  bins = (int *)malloc(N_bins*sizeof(int));
+
+	long long int N = 0;
+FILE *histSer = fopen("histSer.txt","w");
+FILE *histPar = fopen("histPar.txt","w");
+FILE *speedHist = fopen("speedHist.txt","w");
+
+	for(N=256;N<134217729;N*=2)//134217729
+	{
+			cout<<"N is "<<N<<endl;
+    Data = (int *)malloc(N*sizeof(int));
+    Data2 = (int *)malloc(N*sizeof(int));
+    init_long_array(Data,N,N_bins);
+    init_long_array(Data2,N,N_bins);
+		init_array(bins,N_bins);
+    B = (N+T-1)/T;
+    cudaEvent_t ss,se;
+	  float st,st2;
+
+cudaEventCreate(&ss); 
+				cudaEventCreate(&se);
+				cudaEventRecord(ss);
+				cudaDeviceSynchronize();
+           histCreate(Data,N,bins);
+				cudaEventRecord(se);
+				cudaEventSynchronize(se);
+				cudaEventElapsedTime(&st, ss, se);
+		
+		int *dev_Data2,*dev_bins2;
+		float *dev_bins22,*bins2;
+		bins2 = (float *)malloc(N_bins*sizeof(float));
+		init_array(bins,N_bins);
+		init_arrayf(bins2,N_bins);
+  
+		cudaMalloc((void**)&dev_Data2,N*sizeof(int));
+		cudaMalloc((void**)&dev_bins2,N_bins*sizeof(int));
+		cudaMalloc((void**)&dev_bins22,N_bins*sizeof(float));
+
+		cudaMemcpy(dev_Data2, Data , N*sizeof(int),cudaMemcpyHostToDevice);
+		cudaMemcpy(dev_bins2, bins , N_bins*sizeof(int),cudaMemcpyHostToDevice);
+		cudaMemcpy(dev_bins22, bins2 , N_bins*sizeof(float),cudaMemcpyHostToDevice);
+
+		cudaEventCreate(&ss); 
+					cudaEventCreate(&se);
+					cudaEventRecord(ss);
+					cudaDeviceSynchronize();
+		
+						histogramKernelShared<<<B,T,N_bins*sizeof(int)>>>(dev_Data2,dev_bins2,N,N_bins,dev_bins22);
+
+					cudaEventRecord(se);
+					cudaEventSynchronize(se);
+					cudaEventElapsedTime(&st2, ss, se);
+		
+cout<<N<<"  "<<st<<" "<<st2<<" "<<st/st2<<endl;
+
+fprintf(histSer,"%d\t%f\n",N,st);
+fprintf(histPar,"%d\t%f\n",N,st2);
+fprintf(speedHist,"%d\t%f\n",N,st/st2);
+
+
+		cudaMemcpy(bins,dev_bins2,N_bins*sizeof(int),cudaMemcpyDeviceToHost);
+		cudaMemcpy(bins2,dev_bins22,N_bins*sizeof(float),cudaMemcpyDeviceToHost);
+		cudaMemcpy(Data,dev_Data2,N*sizeof(int),cudaMemcpyDeviceToHost);
+  
+		cudaFree(dev_Data2);cudaFree(dev_bins2);cudaFree(dev_bins22);
+		free(bins2);
+	}
+  fclose(histSer);fclose(histPar);fclose(speedHist);
+	free(Data);free(bins);
+	return 0;
+}

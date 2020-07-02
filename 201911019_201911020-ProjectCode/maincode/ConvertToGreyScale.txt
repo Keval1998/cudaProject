@@ -1,0 +1,4 @@
+from PIL import Image
+im = Image.open('/content/drive/My Drive/ACproject/1.jpg').convert('L')
+im_resized = im.resize((250,250), Image.ANTIALIAS)
+im_resized.save('greyscale.png')

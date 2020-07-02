@@ -1,0 +1,62 @@
+%%cu
+#include<cstdlib>
+#include<iostream>
+using namespace std;
+#include<cuda.h>
+#include<stdio.h>
+
+void histEq(int *Data, int N, int *bins, int *Data2)
+{
+		float binsf[256],binsf2[256];
+		for(int i=0;i<256;i++){binsf[i]=0;binsf2[i]=0;}  //initialize array used for bins calculation
+
+		for(int i=0;i<N;i++)
+    	binsf[Data[i]]+=1.0;  //  histogram creation
+		for (int i=0;i<256;i++)
+		{
+		binsf[i]/=N; //  pdf calculation
+
+			for(int j=0;j<=i;j++)
+			binsf2[i]+=binsf[j]; // cdf calculation
+		bins[i]=(int)round(binsf2[i]*255); //final scalling for range 0-255; bins[i] is then equalized histogram
+		}
+		for(int i=0;i<N;i++)
+			Data2[i]=bins[Data[i]]; //reverse mapping to equalized vector
+}
+
+int main()
+{
+  int N=0;
+	FILE *imgvector = fopen("dat1.txt","r"); //  here dat1.txt is file that contains vector
+  int *Data,*Data2,*bins;
+	bins = (int *)malloc(256*sizeof(int)); //  for range 0-255, 256 bins are needed
+  Data = (int *)malloc(62500*sizeof(int)); //  we can set Data size dynamically from the file size also but here for the 
+										   //simplicity and to match output image with input image dimensions image is changed with 
+										   //62500 size
+										   
+  Data2 = (int *)malloc(62500*sizeof(int));// to store an output vector
+	for(int i=0;i<256;i++){bins[i]=0;}
+
+	while (fscanf(imgvector,"%d",&Data[N])!=EOF) //will count no. of pixel of image from dat1.txt(in our case that is also 62500)
+	{
+			N++;
+	}
+	fclose(imgvector);
+
+	//cout<<endl;
+	//for(int i=0;i<N;i++)cout<<Data[i]<<" ";
+	//cout<<endl;
+
+	histEq(Data,N,bins,Data2);  // serial histogram equalization function
+	
+  //cout<<endl;
+	//for(int i=0;i<N;i++)cout<<Data2[i]<<" ";
+
+ int i = 0;
+		FILE *eqvector = fopen("dat2.txt","w"); //  dat2.txt is output file in which we will store output vector
+		while(i<62500)
+			{		fprintf(eqvector,"%d\n",Data2[i]); i+=1; }  //writing in the file
+		fclose(eqvector);
+ free(Data);
+ return 0;
+}

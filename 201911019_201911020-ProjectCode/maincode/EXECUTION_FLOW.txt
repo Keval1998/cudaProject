@@ -1,0 +1,30 @@
+We will need a image file for testing a code.In google colab google drive can be mounted to use directory structure.A Sample
+image is given with this project.
+	code for that:
+		from google.colab import drive
+		drive.mount('/content/drive')
+		
+File1: ConvertToGreyScale.txt
+	This file is reading a image from given example path and converting it to grey scale.
+	The small portion is taken as separet file so that we can check the grey scale image conversion.
+	
+File2: imageToVector.txt
+	This file reads our grey scale image on which we are going to apply equalization.and creatres another text
+file as an output for the input of our algorithm.
+	And This file also shows Histogrm of an original image that is grey scaled.
+	Sometimes if runtime enviornment has overhead issues ,specially in case of google colab, so just we need to check 
+numbers of digits or lines in output text files are completelly written by file pointer
+
+File3a: ParallelEqualization.txt
+	This file is applying equalization algorithm on vector which we have got from the File2.
+	This is parallel approach which uses Shared memory in computations to increase CGMA ratio.another approach using 
+global memory is demonstrated in module/Shared-Global.txt file.
+	In this files Extra functions are implemented such that anyone can debug intemediate results.
+
+File3b: SerialEqualization.txt
+	This file is doing same task as  File3a. but it will be serial calculations.
+	
+File4: ImageSave.txt
+	This file generates an image that is equalized and it also plots equalized histogram to verification of equalization
+on a image histogram.
+	Output image can be verified after save.

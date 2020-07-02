@@ -1,0 +1,34 @@
+In notebook run this command:
+
+Here ! must be there to run linux commands
+
+!apt update -qq;
+!wget https://developer.nvidia.com/compute/cuda/8.0/Prod2/local_installers/cuda-repo-ubuntu1604-8-0-local-ga2_8.0.61-1_amd64-deb;
+!dpkg -i cuda-repo-ubuntu1604-8-0-local-ga2_8.0.61-1_amd64-deb;
+!apt-key add /var/cuda-repo-8-0-local-ga2/7fa2af80.pub;
+!apt-get update -qq;
+!apt-get install cuda gcc-5 g++-5 -y -qq;
+!ln -s /usr/bin/gcc-5 /usr/local/cuda/bin/gcc;
+!ln -s /usr/bin/g++-5 /usr/local/cuda/bin/g++;
+!apt install cuda-8.0;
+
+======================================================================================================================
+
+now check the version in your current runtime and path
+i.e. first change runTime to GPU and open python notebook and use mkdir and cd to work in specific folder.
+try this:
+!/usr/local/cuda/bin/nvcc --version
+
+o/p:
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2018 NVIDIA Corporation
+Built on Sat_Aug_25_21:08:01_CDT_2018
+Cuda compilation tools, release 10.0, V10.0.130
+
+=======================================================================================================================
+
+now run below commands everytime when google colab initialized:
+1.  !pip install git+git://github.com/andreinechaev/nvcc4jupyter.git
+2.  %load_ext nvcc_plugin
+now just add your code in cell and 1st line must be: %%cu
+run the cell

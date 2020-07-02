@@ -1,0 +1,25 @@
+from PIL import Image
+from matplotlib import pyplot as plt 
+import numpy as np
+f1=open("dat2.txt","r+")
+lines = f1.read().split('\n')
+lines.pop()
+print(len(lines))
+
+# Convert the pixels into an array using numpy
+array = np.array(lines, dtype=np.uint8)
+
+# Use PIL to create an image from the new array of pixels
+new_image = Image.fromarray(array.reshape(250,250), 'L')
+new_image.save('new.png')
+
+im = Image.open("new.png");
+pixel = list(im.getdata())
+a=np.array(pixel)
+print(a.shape)
+plt.hist(a, bins = 255)
+x1,x2,y1,y2 = plt.axis()
+
+plt.axis((x1,x2,0,5000))
+plt.title("histogram")
+plt.show()

@@ -1,0 +1,22 @@
+from matplotlib import pyplot as plt 
+import numpy as np
+from PIL import Image
+im=Image.open("greyscale.png")
+f1=open("dat1.txt","w")
+pxl=list(im.getdata())
+
+for i in pxl:
+    f1.write(str(i)+" ")
+    f1.write("\n")
+
+columnsize,rowsize=im.size
+
+a = np.array(pxl)
+
+print(a.shape)
+plt.hist(a, bins = 255)
+x1,x2,y1,y2 = plt.axis()
+
+plt.axis((x1,x2,0,5000))
+plt.title("histogram")
+plt.show()
